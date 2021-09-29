@@ -16,7 +16,7 @@ type Game struct {
 
 type Board struct {
 	l     *log.Logger
-	board []Tile
+	board [][]Tile
 	h     int
 	w     int
 }
@@ -42,15 +42,6 @@ func newTile() Tile {
 type Cordinate struct {
 	x int
 	y int
-}
-
-func (b Board) flattenCordinate(c Cordinate) int {
-	index := b.w*c.x + c.y
-	return index
-}
-
-func buildCord(y int, i int) Cordinate {
-	return Cordinate{(i % y), (i / y)}
 }
 
 func randCord(x int, y int) Cordinate {
@@ -89,106 +80,135 @@ func genMineLocations(x int, y int, n int) []Cordinate {
 		}
 	}
 
-	fmt.Printf("%v", cordinates)
 	return cordinates
+}
+
+func (b Board) at(c Cordinate) *Tile {
+	return &b.board[c.x][c.y]
 }
 
 func newBoard(x int, y int, m int) (Board, error) {
 	b := Board{}
 	b.h = x
 	b.w = y
-
-	for i := 0; i < x*y; i++ {
-		b.board = append(b.board, newTile())
+	b.board = make([][]Tile, x)
+	for i := 0; i < x; i++ {
+		//b.board[i] = make([]Tile, x)
+		for j := 0; j < y; j++ {
+			b.board[i] = append(b.board[i], newTile())
+		}
 	}
 
 	// add in mines
 	mines := genMineLocations(x, y, m)
 
 	for _, cordinate := range mines {
-		index := b.flattenCordinate(cordinate)
-		b.board[index].denom = 9
+		b.at(cordinate).denom = 9
+	}
+	fmt.Println("set mines")
+	for i := 0; i < b.h; i++ {
+		fmt.Println(i)
+		for j := 0; j < b.w; j++ {
+			fmt.Println(j)
+			c := Cordinate{i, j}
+			adjacents := b.adjacentTiles(c)
+			mineCount := 0
+			for _, cord := range adjacents {
+				if b.at(cord).denom == 9 {
+					fmt.Printf("index %d is mine ", cord)
+					mineCount += 1
+				}
+			}
+			t := b.at(c)
+			if t.denom != 9 {
+				fmt.Println("setting cord to ", c, mineCount)
+				t.denom = mineCount
+			}
+		}
 	}
 
 	return b, nil
 }
 
-func (b Board) flagTile(i int) error {
-	if b.board[i].opened {
+func (b Board) flagTile(c Cordinate) error {
+	if b.at(c).opened {
 		err := errors.New("This tile is opened already, cannot flag")
 		// log it heugh
 		return err
 	}
-	b.board[i].flagged = !b.board[i].flagged
+	b.at(c).flagged = !b.at(c).flagged
 	return nil
 }
 
 func (b Board) openTile(c Cordinate) {
-	i := b.flattenCordinate(c)
-	if b.board[i].opened {
+	if b.at(c).opened {
 		// already did this one
 		return
 	}
-	if b.board[i].denom == 9 {
+	if b.at(c).denom == 9 {
 		// bomb
 	}
-	b.board[i].opened = true
-	if b.board[i].denom == 0 {
-		start, end := b.adjacentTiles(c)
-		for i := start; start <= end; i++ {
-			b.openTile(buildCord(b.w, i))
+	b.at(c).opened = true
+	if b.at(c).denom == 0 {
+		adjacents := b.adjacentTiles(c)
+		for _, cord := range adjacents {
+			b.openTile(cord)
 		}
 		// open all adjacent tiles ?
 	}
-
 }
 
-func (b Board) adjacentTiles(c Cordinate) (int, int) {
+func (b Board) adjacentTiles(c Cordinate) []Cordinate {
 	var xTop int
 	var xBottom int
 	var yLeft int
 	var yRight int
 
-	if (c.x - 3) >= 0 {
-		xTop = c.x - 3
+	if (c.x - 1) >= 0 {
+		xTop = c.x - 1
 	} else {
 		xTop = 0
 	}
 
-	if (c.x + 3) < b.h {
-		xBottom = c.x + 3
+	if (c.x + 1) < b.h {
+		xBottom = c.x + 1
 	} else {
 		xBottom = b.h - 1
 	}
 
-	if (c.y - 3) >= 0 {
-		yLeft = c.y - 3
+	if (c.y - 1) >= 0 {
+		yLeft = c.y - 1
 	} else {
 		yLeft = 0
 	}
 
-	if (c.y + 3) < b.w {
-		yRight = c.y + 3
+	if (c.y + 1) < b.w {
+		yRight = c.y + 1
 	} else {
 		yRight = b.w - 1
 	}
+	var cords []Cordinate
+	fmt.Println(xTop, xBottom, yLeft, yRight)
+	for i := xTop; i <= xBottom; i++ {
+		for j := yLeft; j <= yRight; j++ {
+			cords = append(cords, Cordinate{i, j})
+		}
+	}
+	fmt.Println("len of cords", len(cords))
 
-	start := b.flattenCordinate(Cordinate{xTop, yLeft})
-	end := b.flattenCordinate(Cordinate{xBottom, yRight})
-
-	return start, end
+	fmt.Println("cord: ", c, "adj: ", cords)
+	return cords
 }
 
 func (b *Board) printBoard() {
 	fmt.Println("x: ", b.h, "y, ", b.w)
 	for x := 0; x < b.h; x++ {
 		for y := 0; y < b.w; y++ {
-			i := y*y + x
-			if b.board[i].opened {
-				fmt.Printf("| %d |", b.board[i].denom)
-			} else {
-				fmt.Printf("|   |")
-			}
+			//if b.board[i].opened {
+			fmt.Printf("| %d |", b.board[x][y].denom)
+			//} else {
+			//		fmt.Printf("|   |")
+			//	}
 		}
 		fmt.Println()
 	}
@@ -197,7 +217,7 @@ func (b *Board) printBoard() {
 func Run() {
 	game := Game{}
 	var err error
-	game.b, err = newBoard(5, 6, 4)
+	game.b, err = newBoard(8, 6, 5)
 	if err != nil {
 		panic("ded")
 	}
