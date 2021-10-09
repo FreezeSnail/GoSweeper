@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/nsf/termbox-go"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -105,23 +106,18 @@ func newBoard(x int, y int, m int) (Board, error) {
 	for _, cordinate := range mines {
 		b.at(cordinate).denom = 9
 	}
-	fmt.Println("set mines")
 	for i := 0; i < b.h; i++ {
-		fmt.Println(i)
 		for j := 0; j < b.w; j++ {
-			fmt.Println(j)
 			c := Cordinate{i, j}
 			adjacents := b.adjacentTiles(c)
 			mineCount := 0
 			for _, cord := range adjacents {
 				if b.at(cord).denom == 9 {
-					fmt.Printf("index %d is mine ", cord)
 					mineCount += 1
 				}
 			}
 			t := b.at(c)
 			if t.denom != 9 {
-				fmt.Println("setting cord to ", c, mineCount)
 				t.denom = mineCount
 			}
 		}
@@ -140,22 +136,34 @@ func (b Board) flagTile(c Cordinate) error {
 	return nil
 }
 
-func (b Board) openTile(c Cordinate) {
+func (b Board) openTile(c Cordinate) bool {
 	if b.at(c).opened {
 		// already did this one
-		return
+		return true
 	}
-	if b.at(c).denom == 9 {
-		// bomb
-	}
+
 	b.at(c).opened = true
-	if b.at(c).denom == 0 {
-		adjacents := b.adjacentTiles(c)
-		for _, cord := range adjacents {
-			b.openTile(cord)
+	switch b.at(c).denom {
+	case 0:
+		{
+			adjacents := b.adjacentTiles(c)
+			for _, cord := range adjacents {
+				e := b.openTile(cord)
+				if !e {
+					//this is fucked hit a mine
+					panic("fugma opened a mine automatically")
+				}
+			}
+		}
+	case 9:
+		{
+			// bomb go boom
+			return false
 		}
 		// open all adjacent tiles ?
 	}
+
+	return true
 }
 
 func (b Board) adjacentTiles(c Cordinate) []Cordinate {
@@ -188,40 +196,61 @@ func (b Board) adjacentTiles(c Cordinate) []Cordinate {
 		yRight = b.w - 1
 	}
 	var cords []Cordinate
-	fmt.Println(xTop, xBottom, yLeft, yRight)
 	for i := xTop; i <= xBottom; i++ {
 		for j := yLeft; j <= yRight; j++ {
 			cords = append(cords, Cordinate{i, j})
 		}
 	}
-	fmt.Println("len of cords", len(cords))
 
-	fmt.Println("cord: ", c, "adj: ", cords)
 	return cords
 }
 
 func (b *Board) printBoard() {
-	fmt.Println("x: ", b.h, "y, ", b.w)
 	for x := 0; x < b.h; x++ {
 		for y := 0; y < b.w; y++ {
-			//if b.board[i].opened {
-			fmt.Printf("| %d |", b.board[x][y].denom)
-			//} else {
-			//		fmt.Printf("|   |")
-			//	}
+			if b.at(Cordinate{x, y}).opened {
+				fmt.Printf("| %d |", b.board[x][y].denom)
+			} else {
+				fmt.Printf("|   |")
+			}
 		}
 		fmt.Println()
 	}
 }
 
 func Run() {
-	game := Game{}
-	var err error
-	game.b, err = newBoard(8, 6, 5)
+	err := termbox.Init()
 	if err != nil {
-		panic("ded")
+		panic(err)
 	}
-	fmt.Println("board made")
-	game.b.printBoard()
+	defer termbox.Close()
+
+	termbox.SetOutputMode(termbox.OutputRGB)
+	g := Game{}
+	g.b, err = newBoard(8, 6, 5)
+	if err != nil {
+		panic("fugma")
+	}
+	eventQueue := make(chan termbox.Event)
+	go func() {
+		for {
+			eventQueue <- termbox.PollEvent()
+		}
+	}()
+
+	for {
+		select {
+		case ev := <-eventQueue:
+			if ev.Type == termbox.EventKey {
+				switch {
+
+				case ev.Ch == 'q' || ev.Key == termbox.KeyEsc || ev.Key == termbox.KeyCtrlC || ev.Key == termbox.KeyCtrlD:
+					return
+				}
+			}
+		default:
+			Render(&g)
+		}
+	}
 
 }
