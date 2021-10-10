@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/nsf/termbox-go"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -52,6 +51,10 @@ func randCord(x int, y int) Cordinate {
 	}
 
 	return c
+}
+
+func MakeCord(x, y int) Cordinate {
+	return Cordinate{x, y}
 }
 
 func hasCord(cordinates []Cordinate, c Cordinate) bool {
@@ -136,19 +139,19 @@ func (b Board) flagTile(c Cordinate) error {
 	return nil
 }
 
-func (b Board) openTile(c Cordinate) bool {
-	if b.at(c).opened {
+func (g Game) OpenTile(c Cordinate) bool {
+	if g.b.at(c).opened {
 		// already did this one
 		return true
 	}
 
-	b.at(c).opened = true
-	switch b.at(c).denom {
+	g.b.at(c).opened = true
+	switch g.b.at(c).denom {
 	case 0:
 		{
-			adjacents := b.adjacentTiles(c)
+			adjacents := g.b.adjacentTiles(c)
 			for _, cord := range adjacents {
-				e := b.openTile(cord)
+				e := g.OpenTile(cord)
 				if !e {
 					//this is fucked hit a mine
 					panic("fugma opened a mine automatically")
@@ -218,39 +221,45 @@ func (b *Board) printBoard() {
 	}
 }
 
-func Run() {
-	err := termbox.Init()
-	if err != nil {
-		panic(err)
-	}
-	defer termbox.Close()
+func (g Game) Run() {
+	/*	err := termbox.Init()
+		if err != nil {
+			panic(err)
+		}
+		defer termbox.Close()
 
-	termbox.SetOutputMode(termbox.OutputRGB)
-	g := Game{}
+		termbox.SetOutputMode(termbox.OutputRGB)
+	*/
+	var err error
 	g.b, err = newBoard(8, 6, 5)
 	if err != nil {
 		panic("fugma")
 	}
-	eventQueue := make(chan termbox.Event)
-	go func() {
-		for {
-			eventQueue <- termbox.PollEvent()
-		}
-	}()
 
-	for {
-		select {
-		case ev := <-eventQueue:
-			if ev.Type == termbox.EventKey {
-				switch {
+	for true {
 
-				case ev.Ch == 'q' || ev.Key == termbox.KeyEsc || ev.Key == termbox.KeyCtrlC || ev.Key == termbox.KeyCtrlD:
-					return
-				}
-			}
-		default:
-			Render(&g)
-		}
 	}
+	/*	eventQueue := make(chan termbox.Event)
+		go func() {
+			for {
+				eventQueue <- termbox.PollEvent()
+			}
+		}()
+
+		for {
+			select {
+			case ev := <-eventQueue:
+				if ev.Type == termbox.EventKey {
+					switch {
+
+					case ev.Ch == 'q' || ev.Key == termbox.KeyEsc || ev.Key == termbox.KeyCtrlC || ev.Key == termbox.KeyCtrlD:
+						return
+					}
+				}
+			default:
+				Render(&g)
+			}
+		}
+	*/
 
 }

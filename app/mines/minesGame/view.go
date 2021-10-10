@@ -61,7 +61,7 @@ func Render(g *Game) {
 			}
 			for i := 0; i < g.b.w; i++ {
 				for j := 0; j < g.b.w; j++ {
-					termbox.SetCell(boardStartX+g.b.w*x+i, boardStartY*y+j, '', backgroundColor, cellColor)
+					termbox.SetCell(boardStartX+g.b.w*x+i, boardStartY*y+j, ' ', backgroundColor, cellColor)
 				}
 			}
 		}
