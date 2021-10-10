@@ -52,7 +52,7 @@ func Render(g *Game) {
 		for x := 0; x < g.b.w; x++ {
 			cellValue := g.b.board[y][x]
 			var cellColor termbox.Attribute
-			absCellValue := cellValue.denom
+			absCellValue := cellValue.Denom
 			if absCellValue == 9 {
 				cellColor = pieceColors[9]
 			} else {

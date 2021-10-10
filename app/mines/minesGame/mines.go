@@ -1,9 +1,11 @@
 package mines
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -21,10 +23,22 @@ type Board struct {
 	w     int
 }
 
+func (g *Game) GetMap() [][]Tile {
+	return g.b.board
+}
+
+func (g *Game) EncodeMap(rw http.ResponseWriter) {
+	e := json.NewEncoder(rw)
+	err := e.Encode(g.b.board)
+	if err != nil {
+		g.l.Println("Error encoding game list")
+	}
+}
+
 type Tile struct {
-	denom   int
-	flagged bool
-	opened  bool
+	Denom   int  `json:"Denom"`
+	Flagged bool `json: "Flagged"`
+	Opened  bool `json: "Opened"`
 }
 
 func init() {
@@ -33,9 +47,9 @@ func init() {
 
 func newTile() Tile {
 	t := Tile{}
-	t.denom = 0
-	t.flagged = false
-	t.opened = false
+	t.Denom = 0
+	t.Flagged = false
+	t.Opened = false
 	return t
 }
 
@@ -91,15 +105,15 @@ func (b Board) at(c Cordinate) *Tile {
 	return &b.board[c.x][c.y]
 }
 
-func newBoard(x int, y int, m int) (Board, error) {
-	b := Board{}
-	b.h = x
-	b.w = y
-	b.board = make([][]Tile, x)
+func (g *Game) newBoard(x int, y int, m int) error {
+	g.b = Board{}
+	g.b.h = x
+	g.b.w = y
+	g.b.board = make([][]Tile, x)
 	for i := 0; i < x; i++ {
 		//b.board[i] = make([]Tile, x)
 		for j := 0; j < y; j++ {
-			b.board[i] = append(b.board[i], newTile())
+			g.b.board[i] = append(g.b.board[i], newTile())
 		}
 	}
 
@@ -107,46 +121,46 @@ func newBoard(x int, y int, m int) (Board, error) {
 	mines := genMineLocations(x, y, m)
 
 	for _, cordinate := range mines {
-		b.at(cordinate).denom = 9
+		g.b.at(cordinate).Denom = 9
 	}
-	for i := 0; i < b.h; i++ {
-		for j := 0; j < b.w; j++ {
+	for i := 0; i < g.b.h; i++ {
+		for j := 0; j < g.b.w; j++ {
 			c := Cordinate{i, j}
-			adjacents := b.adjacentTiles(c)
+			adjacents := g.b.adjacentTiles(c)
 			mineCount := 0
 			for _, cord := range adjacents {
-				if b.at(cord).denom == 9 {
+				if g.b.at(cord).Denom == 9 {
 					mineCount += 1
 				}
 			}
-			t := b.at(c)
-			if t.denom != 9 {
-				t.denom = mineCount
+			t := g.b.at(c)
+			if t.Denom != 9 {
+				t.Denom = mineCount
 			}
 		}
 	}
 
-	return b, nil
-}
-
-func (b Board) flagTile(c Cordinate) error {
-	if b.at(c).opened {
-		err := errors.New("This tile is opened already, cannot flag")
-		// log it heugh
-		return err
-	}
-	b.at(c).flagged = !b.at(c).flagged
 	return nil
 }
 
-func (g Game) OpenTile(c Cordinate) bool {
-	if g.b.at(c).opened {
+func (b Board) flagTile(c Cordinate) error {
+	if b.at(c).Opened {
+		err := errors.New("This tile is Opened already, cannot flag")
+		// log it heugh
+		return err
+	}
+	b.at(c).Flagged = !b.at(c).Flagged
+	return nil
+}
+
+func (g *Game) OpenTile(c Cordinate) bool {
+	if g.b.at(c).Opened {
 		// already did this one
 		return true
 	}
 
-	g.b.at(c).opened = true
-	switch g.b.at(c).denom {
+	g.b.at(c).Opened = true
+	switch g.b.at(c).Denom {
 	case 0:
 		{
 			adjacents := g.b.adjacentTiles(c)
@@ -154,7 +168,7 @@ func (g Game) OpenTile(c Cordinate) bool {
 				e := g.OpenTile(cord)
 				if !e {
 					//this is fucked hit a mine
-					panic("fugma opened a mine automatically")
+					panic("fugma Opened a mine automatically")
 				}
 			}
 		}
@@ -211,8 +225,8 @@ func (b Board) adjacentTiles(c Cordinate) []Cordinate {
 func (b *Board) printBoard() {
 	for x := 0; x < b.h; x++ {
 		for y := 0; y < b.w; y++ {
-			if b.at(Cordinate{x, y}).opened {
-				fmt.Printf("| %d |", b.board[x][y].denom)
+			if b.at(Cordinate{x, y}).Opened {
+				fmt.Printf("| %d |", b.board[x][y].Denom)
 			} else {
 				fmt.Printf("|   |")
 			}
@@ -221,7 +235,7 @@ func (b *Board) printBoard() {
 	}
 }
 
-func (g Game) Run() {
+func (g *Game) Run() {
 	/*	err := termbox.Init()
 		if err != nil {
 			panic(err)
@@ -231,7 +245,7 @@ func (g Game) Run() {
 		termbox.SetOutputMode(termbox.OutputRGB)
 	*/
 	var err error
-	g.b, err = newBoard(8, 6, 5)
+	err = g.newBoard(8, 6, 5)
 	if err != nil {
 		panic("fugma")
 	}

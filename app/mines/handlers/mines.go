@@ -1,12 +1,13 @@
 package handlers
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 
 	mines "github.com/freezesnail/goSweeper/app/mines/minesGame"
-	"github.com/gorilla/mux"
+	"github.com/go-chi/chi"
 )
 
 /*my handler holds a game instance pointer that wont work.
@@ -25,12 +26,13 @@ func NewMines(l *log.Logger, gs map[int]*mines.Game) *Mines {
 
 func getGameID(r *http.Request) int {
 	// parse the product id from the url
-	vars := mux.Vars(r)
+	i := chi.URLParam(r, "id")
 
 	// convert the id into an integer and return
-	id, err := strconv.Atoi(vars["id"])
+	id, err := strconv.Atoi(i)
 	if err != nil {
 		// should never happen
+		fmt.Println(i)
 		panic(err)
 	}
 

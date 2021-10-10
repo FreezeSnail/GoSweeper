@@ -1,46 +1,42 @@
 package main
 
 import (
-	"context"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
-	"time"
+
+	"github.com/go-chi/cors"
 
 	"github.com/freezesnail/goSweeper/app/mines/handlers"
 	mines "github.com/freezesnail/goSweeper/app/mines/minesGame"
-	gohandlers "github.com/gorilla/handlers"
-	"github.com/gorilla/mux"
+	"github.com/go-chi/chi"
 )
 
 func main() {
 
 	l := log.New(os.Stdout, "Mines-api", log.LstdFlags)
 
-	r := mux.NewRouter()
+	r := chi.NewRouter()
 
 	mh := handlers.NewMines(l, make(map[int]*mines.Game))
+	//r.Use(mh.CorsMiddleware)
+	r.Use(cors.Handler(cors.Options{
+		// AllowedOrigins:   []string{"https://foo.com"}, // Use this to allow specific origin hosts
+		AllowedOrigins: []string{"https://*", "http://*", "http://localhost:5000"},
+		// AllowOriginFunc:  func(r *http.Request, origin string) bool { return true },
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: false,
+		MaxAge:           300, // Maximum value not ignored by any of major browsers
+	}))
 
-	getR := r.Methods(http.MethodGet).Subrouter()
-	getR.HandleFunc("/Games", mh.ListGames)
+	r.Get("/Games", mh.ListGames)
+	r.Get("/{id:[0-9]+}/Map", mh.GetBoard)
 
-	postR := r.Methods(http.MethodPost).Subrouter()
-	//	postR.HandleFunc("/{id:[0-9]+}/open", mh.Open)
-	postR.HandleFunc("/NewGame", mh.NewGame)
-
-	// CORS
-	ch := gohandlers.CORS(gohandlers.AllowedOrigins([]string{"*"}))
-
-	s := http.Server{
-		Addr:         "8090",
-		Handler:      ch(r),
-		ErrorLog:     l,                 // set the logger for the server
-		ReadTimeout:  5 * time.Second,   // max time to read request from the client
-		WriteTimeout: 10 * time.Second,  // max time to write response to the client
-		IdleTimeout:  120 * time.Second, // max time for connections using TCP Keep-Alive
-
-	}
+	r.Post("/{id:[0-9]+}/open", mh.Open)
+	r.Post("/NewGame", mh.NewGame)
 
 	go func() {
 		l.Println("Starting server on port 8090")
@@ -62,7 +58,5 @@ func main() {
 	log.Println("Got signal:", sig)
 
 	// gracefully shutdown the server, waiting max 30 seconds for current operations to complete
-	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
-	s.Shutdown(ctx)
 
 }
